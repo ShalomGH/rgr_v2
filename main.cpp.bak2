@@ -1,0 +1,69 @@
+#include "tui.h"
+#include <cstdlib>
+#include <string>
+#include <panel.h>
+
+using namespace std;
+
+int main() {
+  initscr(); // инициализируем библиотеку
+  cbreak(); // Не использовать буфер для функции getch()
+  raw();
+  nonl();
+  noecho(); // Не печатать на экране то, что набирает пользователь на клавиатуре
+  curs_set(0); // Убрать курсор
+  keypad(stdscr,
+         TRUE); // Активировать специальные клавиши клавиатуры (например, если
+                // хотим использовать горячие клавиши)
+  if (has_colors() == FALSE) // На практике столкнулся с линуксом, на котором не
+                             // было поддержки цвета.
+  {
+    endwin();
+    puts("\nYour terminal does not support color");
+    return (1);
+  }
+  start_color();        // Активируем поддержку цвета
+  use_default_colors(); // Фон stscr будет "прозрачным"
+  init_pair(1, COLOR_BLACK,
+            COLOR_BLUE); // Все цветовые пары (background-foreground) должны
+                         // быть заданы прежде, чем их используют
+  init_pair(4, COLOR_BLACK, COLOR_RED);
+  init_pair(5, COLOR_BLACK, COLOR_MAGENTA);
+  int x, y;
+  getmaxyx(stdscr, y, x);
+  curw *wins[3];
+  int32_t user_key = 0;
+  // Создадим несколько окон
+  wins[0] =
+      tui_new_win(0, 0, y / 5 + y / 3, x / 2 + x / 3, "-=Hello World=-", 1);
+  wins[1] = tui_new_win(y / 3, x / 2, 15, 30, "-=Data=-", 4);
+  wins[2] = tui_new_win(5, 5, 10, 20, "-=Memo=-", 5);
+  PANEL *TOP = wins[0]->panel;
+  int panel_counter = 0;
+  do {
+    switch (user_key) {
+    case 0x9: // TAB
+      if (++panel_counter > 2) {
+        panel_counter = 0;
+      }
+      TOP = wins[panel_counter]->panel;
+      break;
+    case KEY_UP:
+    case KEY_DOWN:
+    case KEY_LEFT:
+    case KEY_RIGHT:
+      tui_move_panel(wins[panel_counter], user_key);
+    default:
+      if (isalpha(user_key))
+        waddch(wins[panel_counter]->overlay, user_key);
+      break;
+    }
+    // Ставим текущее выбранное окно на вершину стека и обновляем
+    top_panel(TOP);
+    touchwin(panel_window(TOP));
+    update_panels();
+    doupdate();
+  } while ((user_key = getch()) != KEY_F(12));
+  endwin();
+  exit(1);
+}
